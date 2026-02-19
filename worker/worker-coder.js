@@ -146,6 +146,8 @@ function tryCompile(projectDir, log, taskId) {
   var cocosExe = process.env.COCOS_CREATOR || 'D:\\CocosCreator-v3.8.8-win-121518\\CocosCreator.exe';
   var { execSync } = require('child_process');
   var buildDir = path.join(projectDir, 'build', 'web-mobile');
+  // Clean previous build output so we can detect fresh build success
+  try { if (fs.existsSync(buildDir)) fs.rmSync(buildDir, { recursive: true, force: true }); } catch(e) {}
   try {
     execSync('"' + cocosExe + '" --project "' + projectDir + '" --build "platform=web-mobile;debug=false"', { timeout: 180000, encoding: 'utf-8', stdio: ['pipe','pipe','pipe'] });
     log('[coder] Build passed!', taskId);
@@ -159,7 +161,7 @@ function tryCompile(projectDir, log, taskId) {
     var output = ((e.stdout||'') + '\n' + (e.stderr||'')).trim();
     // Filter real TS errors (not asset warnings)
     var errors = output.split('\n').filter(function(l) { return /error TS\d+/i.test(l); });
-    if (errors.length === 0) errors = output.split('\n').filter(function(l) { return /error/i.test(l) && !/warning|asset/i.test(l); });
+    if (errors.length === 0) errors = output.split('\n').filter(function(l) { return /error/i.test(l) && !/warning|asset|SIGTERM|Exit process with code:null/i.test(l); });
     log('[coder] Build failed: ' + errors.length + ' errors', taskId);
     return { ok: false, errors: errors.length > 0 ? errors : ['Build failed: ' + output.slice(-500)] };
   }
