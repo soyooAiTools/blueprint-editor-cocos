@@ -17,6 +17,6 @@
 |------|--------|------|
 | WORKER_ID | workerA-cocos | Worker 标识 |
 | BASE_URL | https://playcools.top/blueprintEditorCocos | 服务端地址 |
-| COCOS_CREATOR | D:\CocosCreator\CocosCreator.exe | Cocos Creator 路径 |
+| COCOS_CREATOR | D:\CocosCreator-v3.8.8-win-121518\CocosCreator.exe | Cocos Creator 路径 |
 | LLM_API_KEY | (内置) | AI 编码 API Key |
 | LLM_MODEL | claude-sonnet-4-5-20250929 | AI 编码模型 |

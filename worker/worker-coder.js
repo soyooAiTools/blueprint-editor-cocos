@@ -143,7 +143,7 @@ var FIX_PROMPT = [
 ].join('\n');
 
 function tryCompile(projectDir, log, taskId) {
-  var cocosExe = process.env.COCOS_CREATOR || 'D:\\CocosCreator\\CocosCreator.exe';
+  var cocosExe = process.env.COCOS_CREATOR || 'D:\\CocosCreator-v3.8.8-win-121518\\CocosCreator.exe';
   var { execSync } = require('child_process');
   try {
     execSync('"' + cocosExe + '" --project "' + projectDir + '" --build "platform=web-mobile;debug=false"', { timeout: 180000, encoding: 'utf-8', stdio: ['pipe','pipe','pipe'] });
