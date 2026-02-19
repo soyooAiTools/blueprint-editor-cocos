@@ -3,7 +3,7 @@
 ## 环境要求
 - Windows Server 2025 / Windows 10+
 - Node.js v20+
-- Cocos Creator 3.8+
+- Cocos Creator 3.8.8
 - SVN client
 
 ## 部署步骤

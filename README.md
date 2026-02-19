@@ -6,7 +6,7 @@ AI 试玩广告自动化流水线（Cocos Creator 版）：蓝图编辑 → AI �
 - **前端**: React 19 + @xyflow/react（与 Unity 版共用蓝图编辑器）
 - **Worker**: Node.js，轮询任务 → SVN → AI 编码 → Cocos CLI 构建 → 单文件 HTML
 - **AI**: Claude Sonnet 4.5（TypeScript 代码生成 + 编译修复循环）
-- **构建**: Cocos Creator 3.8+ 命令行构建 Web Mobile
+- **构建**: Cocos Creator 3.8.8 命令行构建 Web Mobile
 
 ## Worker 文件
 | 文件 | 说明 |
