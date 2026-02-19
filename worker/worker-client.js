@@ -134,19 +134,22 @@ async function processTask(task) {
       log('HTML conversion done: ' + htmlResults.length + ' channels', taskId);
     } catch(e) { log('HTML conversion failed (non-fatal): ' + e.message, taskId); }
 
-    await reportStatus(taskId, 'processing', { message: 'Uploading build...' });
-    var uploaded = await uploadBuild(taskId, buildDir);
-    if (!uploaded) { await reportStatus(taskId, 'failed', { message: 'Build upload failed' }); return; }
-
+    await reportStatus(taskId, 'processing', { message: 'Uploading HTML...' });
     if (fs.existsSync(htmlOutputDir)) {
-      try {
-        var htmlFiles = fs.readdirSync(htmlOutputDir).filter(function(f) { return f.endsWith('.html'); });
-        for (var i = 0; i < htmlFiles.length; i++) {
-          var htmlBuffer = fs.readFileSync(path.join(htmlOutputDir, htmlFiles[i]));
-          await apiRequest('POST', '/api/tasks/' + taskId + '/upload-html', htmlBuffer, false, { 'Content-Type': 'text/html', 'X-Filename': htmlFiles[i] });
-        }
-        try { fs.rmSync(htmlOutputDir, { recursive: true, force: true }); } catch(e) {}
-      } catch(e) { log('HTML upload failed: ' + e.message, taskId); }
+      var htmlFiles = fs.readdirSync(htmlOutputDir).filter(function(f) { return f.endsWith('.html'); });
+      var uploadOk = false;
+      for (var i = 0; i < htmlFiles.length; i++) {
+        var htmlBuffer = fs.readFileSync(path.join(htmlOutputDir, htmlFiles[i]));
+        log('Uploading ' + htmlFiles[i] + ' (' + (htmlBuffer.length/1024/1024).toFixed(1) + 'MB)', taskId);
+        try {
+          await apiRequest('POST', '/api/tasks/' + taskId + '/upload-html', htmlBuffer, true, { 'Content-Type': 'text/html', 'X-Filename': htmlFiles[i] });
+          uploadOk = true;
+        } catch(e) { log('HTML upload failed: ' + e.message, taskId); }
+      }
+      try { fs.rmSync(htmlOutputDir, { recursive: true, force: true }); } catch(e) {}
+      if (!uploadOk) { await reportStatus(taskId, 'failed', { message: 'HTML upload failed' }); return; }
+    } else {
+      await reportStatus(taskId, 'failed', { message: 'No HTML output' }); return;
     }
 
     await reportStatus(taskId, 'reviewing', { message: 'Build done (' + buildResult.buildTime + 's), awaiting review' });
