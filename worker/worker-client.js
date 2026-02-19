@@ -130,7 +130,7 @@ async function processTask(task) {
     await reportStatus(taskId, 'processing', { message: 'HTML conversion...' });
     var htmlOutputDir = path.join(WORK_DIR, taskId + '-html');
     try {
-      var htmlResults = convertAndSave(buildDir, htmlOutputDir, { channels: ['appLovin'], projectName: taskId });
+      var htmlResults = await convertAndSave(buildDir, htmlOutputDir, { channels: ['appLovin'], projectName: taskId });
       log('HTML conversion done: ' + htmlResults.length + ' channels', taskId);
     } catch(e) { log('HTML conversion failed (non-fatal): ' + e.message, taskId); }
 

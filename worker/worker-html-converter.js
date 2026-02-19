@@ -1,6 +1,10 @@
 // Cocos build/web-mobile → single-file HTML per channel
+// Strategy: PNG→WebP, text-like→zlib+base64, images→base64
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
+let sharp;
+try { sharp = require('sharp'); } catch(e) { sharp = null; }
 
 var commonJumpLogic = 'const ua=navigator.userAgent.toLowerCase();const isIOSUA=/iphone|ipad|ipod/.test(ua);const isDesktop=navigator.platform==="MacIntel"||navigator.platform==="Win32";const isRealIOSSafari=!isDesktop&&isIOSUA&&/safari/.test(ua)&&!/crios|fxios/.test(ua);let shouldJump=false;function tryJump(){if(!shouldJump)return;shouldJump=false;if(typeof doJump==="function")doJump();}if(isRealIOSSafari){document.addEventListener("touchend",tryJump,true);document.addEventListener("click",tryJump,true);}';
 
@@ -13,6 +17,12 @@ var CHANNELS = {
   preview: '!(function(){window.__onCTA=function(){var url=/iphone|ipad|ipod/i.test(navigator.userAgent)?(window.__channelConfig||{}).iosLink:(window.__channelConfig||{}).androidLink;window.open(url,"_blank");};})();',
 };
 
+// Text-like extensions benefit from zlib
+var TEXT_EXTS = ['.json', '.bin', '.cconb', '.ccon', '.js'];
+// Image/audio extensions — already compressed, skip zlib
+var MEDIA_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.mp3', '.ogg', '.wav'];
+var ALL_EXTS = TEXT_EXTS.concat(MEDIA_EXTS);
+
 function* walkFiles(dir) {
   var entries = fs.readdirSync(dir, { withFileTypes: true });
   for (var i = 0; i < entries.length; i++) {
@@ -22,7 +32,34 @@ function* walkFiles(dir) {
   }
 }
 
-function buildSingleHtml(buildDir) {
+// Convert PNGs to WebP, returns map of original path → {buf, newExt}
+async function convertPngs(assetFiles) {
+  if (!sharp) {
+    console.log('[converter] sharp not available, skipping PNG→WebP conversion');
+    return {};
+  }
+  var converted = {};
+  var pngs = assetFiles.filter(f => path.extname(f).toLowerCase() === '.png');
+  console.log('[converter] Converting ' + pngs.length + ' PNGs to WebP...');
+  var totalBefore = 0, totalAfter = 0;
+  for (var f of pngs) {
+    try {
+      var origBuf = fs.readFileSync(f);
+      totalBefore += origBuf.length;
+      var webpBuf = await sharp(origBuf).webp({ quality: 85 }).toBuffer();
+      totalAfter += webpBuf.length;
+      converted[f] = { buf: webpBuf, newExt: '.webp' };
+    } catch(e) {
+      // Keep original if conversion fails
+    }
+  }
+  if (pngs.length > 0) {
+    console.log('[converter] PNG→WebP: ' + (totalBefore/1024/1024).toFixed(1) + 'MB → ' + (totalAfter/1024/1024).toFixed(1) + 'MB (' + Math.round((1 - totalAfter/totalBefore) * 100) + '% saved)');
+  }
+  return converted;
+}
+
+async function buildSingleHtml(buildDir) {
   var indexPath = path.join(buildDir, 'index.html');
   if (!fs.existsSync(indexPath)) throw new Error('index.html not found in ' + buildDir);
   var html = fs.readFileSync(indexPath, 'utf-8');
@@ -42,48 +79,96 @@ function buildSingleHtml(buildDir) {
     return match;
   });
 
-  // Embed assets as base64 file dict + XHR interceptor
-  var assetsDir = path.join(buildDir, 'assets');
-  if (fs.existsSync(assetsDir)) {
-    var fileDict = {};
-    for (var f of walkFiles(assetsDir)) {
-      var rel = path.relative(buildDir, f).replace(/\\/g, '/');
+  // Collect asset files
+  var assetFiles = [];
+  var seen = {};
+  var scanDirs = ['assets', 'cocos-js', 'src'];
+  for (var d of scanDirs) {
+    var dir = path.join(buildDir, d);
+    if (!fs.existsSync(dir)) continue;
+    for (var f of walkFiles(dir)) {
       var ext = path.extname(f).toLowerCase();
-      if (['.png','.jpg','.jpeg','.webp','.mp3','.ogg','.wav','.json','.bin','.cconb','.ccon'].indexOf(ext) >= 0) {
-        fileDict[rel] = fs.readFileSync(f).toString('base64');
+      if (ALL_EXTS.indexOf(ext) >= 0) {
+        var rel = path.relative(buildDir, f).replace(/\\/g, '/');
+        if (!seen[rel]) { assetFiles.push(f); seen[rel] = true; }
       }
     }
-    // Also check for cocos-js/ or src/ dirs
-    var extraDirs = ['cocos-js', 'src'];
-    for (var d = 0; d < extraDirs.length; d++) {
-      var extraDir = path.join(buildDir, extraDirs[d]);
-      if (fs.existsSync(extraDir)) {
-        for (var f of walkFiles(extraDir)) {
-          var rel = path.relative(buildDir, f).replace(/\\/g, '/');
-          if (!fileDict[rel]) fileDict[rel] = fs.readFileSync(f).toString('base64');
-        }
-      }
-    }
-
-    var interceptor = '<script>'
-      + 'window.__fd=' + JSON.stringify(fileDict) + ';'
-      + 'var _xo=XMLHttpRequest.prototype.open,_xs=XMLHttpRequest.prototype.send;'
-      + 'XMLHttpRequest.prototype.open=function(m,u){if(u&&!u.startsWith("http")){var k=u.replace("./","");if(window.__fd[k]){this._k=k;return;}}return _xo.apply(this,arguments);};'
-      + 'XMLHttpRequest.prototype.send=function(){if(this._k){var d=atob(window.__fd[this._k]);var a=new Uint8Array(d.length);for(var i=0;i<d.length;i++)a[i]=d.charCodeAt(i);try{Object.defineProperty(this,"status",{value:200});}catch(e){}try{Object.defineProperty(this,"readyState",{value:4});}catch(e){}try{Object.defineProperty(this,"response",{value:a.buffer});}catch(e){}try{Object.defineProperty(this,"responseText",{value:d});}catch(e){}if(this.onload)this.onload();return;}return _xs.apply(this,arguments);};'
-      + '</script>';
-
-    var headEnd = html.indexOf('</head>');
-    if (headEnd > -1) html = html.slice(0, headEnd) + interceptor + html.slice(headEnd);
   }
+
+  // Convert PNGs to WebP
+  var pngConverted = await convertPngs(assetFiles);
+
+  // Build file dict: {relativePath: {d: base64data, z: bool}}
+  // z=true means data is zlib-deflated before base64
+  var fileDict = {};
+  var totalRaw = 0, totalEncoded = 0;
+
+  for (var f of assetFiles) {
+    var rel = path.relative(buildDir, f).replace(/\\/g, '/');
+    var ext = path.extname(f).toLowerCase();
+    var buf;
+
+    if (pngConverted[f]) {
+      // Use WebP version, update the key to .webp extension
+      buf = pngConverted[f].buf;
+      // Keep original rel as key (engine requests original path)
+    } else {
+      buf = fs.readFileSync(f);
+    }
+
+    totalRaw += buf.length;
+
+    if (TEXT_EXTS.indexOf(ext) >= 0) {
+      // Compress then base64
+      var compressed = zlib.deflateSync(buf, { level: 9 });
+      fileDict[rel] = { d: compressed.toString('base64'), z: 1 };
+      totalEncoded += compressed.toString('base64').length;
+    } else {
+      // Direct base64
+      fileDict[rel] = { d: buf.toString('base64') };
+      totalEncoded += buf.toString('base64').length;
+    }
+  }
+
+  console.log('[converter] Assets: ' + assetFiles.length + ' files, raw=' + (totalRaw/1024/1024).toFixed(1) + 'MB, encoded=' + (totalEncoded/1024/1024).toFixed(1) + 'MB');
+
+  // Client-side interceptor with zlib inflate support (tiny inline pako-inflate)
+  var interceptor = '<script>'
+    // Tiny inflate from pako (sync, ~3KB minified) — we inline a minimal version
+    + 'var __fd=' + JSON.stringify(fileDict) + ';'
+    // Base64 decode helper
+    + 'function b64d(s){var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}'
+    // Use DecompressionStream for zlib (async, but we cache results)
+    + 'var __cache={};'
+    + 'async function inflateB64(s){var c=await new Response(new Blob([b64d(s)]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer();return new Uint8Array(c);}'
+    + 'var _xo=XMLHttpRequest.prototype.open,_xs=XMLHttpRequest.prototype.send;'
+    + 'XMLHttpRequest.prototype.open=function(m,u){this.__u=u;return _xo.apply(this,arguments);};'
+    + 'XMLHttpRequest.prototype.send=function(){'
+    + 'var u=this.__u;if(u&&!u.startsWith("http")){var k=u.replace("./","");var e=__fd[k];if(e){'
+    + 'var xhr=this;'
+    + 'function done(a){'
+    + 'try{Object.defineProperty(xhr,"status",{value:200,writable:true});}catch(e){}'
+    + 'try{Object.defineProperty(xhr,"readyState",{value:4,writable:true});}catch(e){}'
+    + 'try{Object.defineProperty(xhr,"response",{value:a.buffer,writable:true});}catch(e){}'
+    + 'try{Object.defineProperty(xhr,"responseText",{value:new TextDecoder().decode(a),writable:true});}catch(e){}'
+    + 'if(xhr.onload)xhr.onload();if(xhr.onreadystatechange)xhr.onreadystatechange();'
+    + '}'
+    + 'if(e.z){inflateB64(e.d).then(done);}else{done(b64d(e.d));}'
+    + 'return;}}'
+    + 'return _xs.apply(this,arguments);};'
+    + '</script>';
+
+  var headEnd = html.indexOf('</head>');
+  if (headEnd > -1) html = html.slice(0, headEnd) + interceptor + html.slice(headEnd);
 
   return html;
 }
 
-function convertToHtml(buildDir, options) {
+async function convertToHtml(buildDir, options) {
   options = options || {};
   var channels = options.channels || ['appLovin', 'preview'];
   console.log('[converter] Building base HTML from: ' + buildDir);
-  var baseHtml = buildSingleHtml(buildDir);
+  var baseHtml = await buildSingleHtml(buildDir);
   var results = {};
   for (var i = 0; i < channels.length; i++) {
     var ch = channels[i];
@@ -95,11 +180,11 @@ function convertToHtml(buildDir, options) {
   return results;
 }
 
-function convertAndSave(buildDir, outputDir, options) {
+async function convertAndSave(buildDir, outputDir, options) {
   options = options || {};
   var projectName = options.projectName || 'playable';
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-  var results = convertToHtml(buildDir, options);
+  var results = await convertToHtml(buildDir, options);
   var saved = [];
   for (var ch in results) {
     var filename = projectName + '_' + ch + '.html';
