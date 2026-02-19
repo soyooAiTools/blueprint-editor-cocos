@@ -10,7 +10,7 @@ const MAX_TOKENS = 16384;
 const MAX_FIX_ATTEMPTS = 10;
 
 function callClaude(systemPrompt, userMessage, timeoutMs) {
-  timeoutMs = timeoutMs || 120000;
+  timeoutMs = timeoutMs || 300000;
   return new Promise(function(resolve, reject) {
     var body = JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] });
     var url = new URL(API_BASE + '/v1/messages');
