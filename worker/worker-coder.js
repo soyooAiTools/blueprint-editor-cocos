@@ -55,7 +55,7 @@ function parseBlueprintToPrompt(blueprint) {
 }
 
 var GENERATE_PROMPT = [
-  'You are a Cocos Creator 3.8.8 TypeScript code generator for playable ads (HTML5 Web Mobile).',
+  'You are a Cocos Creator 3.8.x TypeScript code generator for playable ads (HTML5 Web Mobile).',
   '',
   '## 踩坑经验（公司实战，必须遵守！）',
   '- 音频绝对不要用 .ogg 格式，必须用 .mp3。苹果手机黑屏大概率是 .ogg 导致',
@@ -122,7 +122,7 @@ var GENERATE_PROMPT = [
 ].join('\n');
 
 var FIX_PROMPT = [
-  'You are fixing Cocos Creator 3.8.8 TypeScript compilation errors for a playable ad.',
+  'You are fixing Cocos Creator 3.8.x TypeScript compilation errors for a playable ad.',
   '',
   '## Key constraints:',
   '- Must use @ccclass decorator on all component classes',
