@@ -19,16 +19,17 @@ AI 试玩广告自动化流水线（Cocos Creator 版）：蓝图编辑 → AI �
 - **构建**: Cocos Creator 3.8.8 命令行构建 Web Mobile
 - **压缩**: PNG→WebP (94% 节省) + JSON/JS/BIN zlib deflate, 产出单文件 HTML
 
-## E2E 流程 (实测 107s)
+## E2E 流程 (实测 231s，含 AI 编码)
 
 | 步骤 | 模块 | 说明 | 耗时 |
 |------|------|------|------|
 | 1. Poll | worker-client.js | 从后端拉取待处理任务 | <1s |
 | 2. SVN | worker-client.js | checkout/update 项目资源 | ~1s |
-| 3. Scene detect | worker-patch.js | 扫描 .scene 文件, 修复 project settings | <1s |
-| 4. Build | worker-cocos-build.js | Cocos Creator CLI `--build` | ~16s |
-| 5. HTML convert | worker-html-converter.js | PNG→WebP + zlib + 单文件打包 | ~3s |
-| 6. Upload | worker-client.js | 上传 HTML 到后端 | ~85s |
+| 3. AI 编码 | worker-coder.js | Claude 生成 TS 代码 + 编译修复循环 | ~70s |
+| 4. Scene detect | worker-patch.js | 扫描 .scene 文件, 修复 project settings | <1s |
+| 5. Build | worker-cocos-build.js | Cocos Creator CLI `--build` | ~17s |
+| 6. HTML convert | worker-html-converter.js | PNG→WebP + zlib + 单文件打包 | ~3s |
+| 7. Upload | worker-client.js | 上传 HTML 到后端 | ~120s |
 
 ## Worker 文件
 
