@@ -3,11 +3,11 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-var COCOS_CREATOR = process.env.COCOS_CREATOR || 'D:\\CocosCreator\\CocosCreator.exe';
+var COCOS_CREATOR = process.env.COCOS_CREATOR || 'D:\\CocosCreator-v3.8.8-win-121518\\CocosCreator.exe';
 
 function findCocosCreator() {
   if (fs.existsSync(COCOS_CREATOR)) return COCOS_CREATOR;
-  var paths = ['C:\\CocosCreator\\CocosCreator.exe', 'D:\\CocosCreator\\CocosCreator.exe', 'C:\\Program Files\\Cocos\\CocosCreator\\CocosCreator.exe'];
+  var paths = ['D:\\CocosCreator-v3.8.8-win-121518\\CocosCreator.exe', 'D:\\CocosCreator\\CocosCreator.exe', 'C:\\Program Files\\Cocos\\CocosCreator\\CocosCreator.exe'];
   for (var i = 0; i < paths.length; i++) { if (fs.existsSync(paths[i])) return paths[i]; }
   return COCOS_CREATOR;
 }
