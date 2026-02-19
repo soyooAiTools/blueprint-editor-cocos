@@ -57,6 +57,13 @@ function parseBlueprintToPrompt(blueprint) {
 var GENERATE_PROMPT = [
   'You are a Cocos Creator 3.x TypeScript code generator for playable ads (HTML5 Web Mobile).',
   '',
+  '## 踩坑经验（公司实战，必须遵守！）',
+  '- 音频绝对不要用 .ogg 格式，必须用 .mp3。苹果手机黑屏大概率是 .ogg 导致',
+  '- 打包不要勾选 MD5 缓存，可能导致打包失败',
+  '- 打包 web-mobile 后压缩 zip 不要多套一层目录，否则渠道包黑屏',
+  '- 打包后黑屏但调试模式正常 + JSON.parse undefined 报错 → 缓存没清干净，删 library/Build/temp 重新打包',
+  '- 打包后出现进度条 → 游戏初始化时加 document.body.style.overflow = "hidden"',
+  '',
   '## CRITICAL COCOS CREATOR CONSTRAINTS',
   '',
   '### DO NOT use:',
