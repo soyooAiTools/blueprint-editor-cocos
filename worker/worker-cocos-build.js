@@ -35,7 +35,11 @@ async function runCocosBuild(projectDir, log, taskId) {
 
     child.on('close', function(code) {
       var buildTime = Math.floor((Date.now() - startTime) / 1000);
-      if (code === 0 && fs.existsSync(path.join(buildDir, 'index.html'))) {
+      var hasOutput = fs.existsSync(path.join(buildDir, 'index.html'));
+      if (hasOutput) {
+        // Build produced output — treat as success even with non-zero exit code
+        // (Cocos may exit with code 36 due to missing assets warnings)
+        if (code !== 0) log('[cocos-build] Warning: exit code ' + code + ' but output exists, treating as success', taskId);
         log('[cocos-build] Done in ' + buildTime + 's', taskId);
         resolve({ ok: true, buildTime: buildTime, outputDir: buildDir });
       } else {
