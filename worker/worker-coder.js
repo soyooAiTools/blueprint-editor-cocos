@@ -163,6 +163,7 @@ function tryCompile(projectDir, log, taskId) {
     var errors = output.split('\n').filter(function(l) { return /error TS\d+/i.test(l); });
     if (errors.length === 0) errors = output.split('\n').filter(function(l) { return /error/i.test(l) && !/warning|asset|SIGTERM|Exit process with code:null/i.test(l); });
     log('[coder] Build failed: ' + errors.length + ' errors', taskId);
+    if (errors.length > 0) errors.forEach(function(e) { log('[coder] ERROR: ' + e.trim(), taskId); });
     return { ok: false, errors: errors.length > 0 ? errors : ['Build failed: ' + output.slice(-500)] };
   }
 }
